@@ -1,0 +1,13 @@
+Package: MicrobeGenomes
+Title: MicrobeGenomes
+Version: 0.98.0
+Authors@R: person('Jacques', 'Serizay', email = 'jacquesserizay@gmail.com', role = c('cre', 'aut'))
+Description: Shiny app to serve genome files (reference, Hi-C contact maps, ...) of microbe genomes.
+License: MIT + file LICENSE
+Imports: 
+    config (>= 0.3.2),
+    golem (>= 0.4.1),
+    shiny (>= 1.7.5.1)
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.1

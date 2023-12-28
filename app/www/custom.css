@@ -1,0 +1,6 @@
+.selectize-control .selectize-dropdown {
+    position: static !important;
+}
+.selectize-dropdown-content {
+    max-height: 600px; 
+}

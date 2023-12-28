@@ -1,4 +1,4 @@
-populate <- function(.DBZ_DATA_DIR = '/data/DBZ') {
+populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
 
     db_path <- system.file('extdata', 'MicrobeGenomes.sqlite', package = 'MicrobeGenomes')
 
@@ -66,7 +66,7 @@ populate <- function(.DBZ_DATA_DIR = '/data/DBZ') {
     # |_ mcool       <chr>
 
     db <- RSQLite::dbConnect(db)
-    refs <- dplyr::tbl(db, "REFERENCES") %>% dplyr::collect()
+    refs <- dplyr::tbl(db, "REFERENCES") |> dplyr::collect()
 
     dir <- file.path(.DBZ_DATA_DIR, 'cool')
     cool_f <- dir |> list.files(pattern = '*.mcool$', full.names = TRUE)
@@ -101,8 +101,8 @@ populate <- function(.DBZ_DATA_DIR = '/data/DBZ') {
     # |_ library     <chr>
     # |_ ps          <chr>
 
-    db <- RSQLite::dbConnect(db)
-    maps <- dplyr::tbl(db, "MAPS") %>% dplyr::collect()
+    db <- DBI::dbConnect(db)
+    refs <- dplyr::tbl(db, "REFERENCES") |> dplyr::collect()
 
     dir <- file.path(.DBZ_DATA_DIR, 'distance_law')
     ps_f <- dir |> list.files(pattern = '*.csv$', full.names = TRUE)
@@ -140,7 +140,7 @@ populate <- function(.DBZ_DATA_DIR = '/data/DBZ') {
 
     # Available features: macrodomains, DI, insulations, borders, chromosight loops
     db <- RSQLite::dbConnect(db)
-    maps <- dplyr::tbl(db, "MAPS") %>% dplyr::collect()
+    refs <- dplyr::tbl(db, "REFERENCES") |> dplyr::collect()
 
     dir <- file.path(.DBZ_DATA_DIR, 'macrodomains')
     macro_f <- dir |> list.files(pattern = '*.bed$', full.names = TRUE)

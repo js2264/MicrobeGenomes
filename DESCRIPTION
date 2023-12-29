@@ -6,6 +6,7 @@ Description: Shiny app to serve genome files (reference, Hi-C contact maps, ...)
 License: MIT + file LICENSE
 Imports: 
     config (>= 0.3.2),
+    pkgload, 
     golem (>= 0.4.1),
     shiny (>= 1.7.5.1), 
     bs4Dash, 
@@ -16,6 +17,8 @@ Imports:
     DBI, 
     RSQLite, 
     dplyr, 
+    dbplyr, 
+    shinyjs, 
     ggplot2, 
     scales, 
     stringr, 

@@ -1,7 +1,7 @@
 app_server <- function(input, output, session) {
     
     ## Start-up ops
-    # populate_db(.DBZ_DATA_DIR = '/data/DBZ')
+    # populate_db(.DBZ_DATA_DIR = '/mnt/DBZ')
     db <- DBI::dbConnect(
         RSQLite::SQLite(), 
         system.file('extdata', 'MicrobeGenomes.sqlite', package = 'MicrobeGenomes')

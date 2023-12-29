@@ -1,5 +1,6 @@
 #' @import shiny
-#' @include globals.R
+#' @include global.R
+#' @include _disable_autoload.R
 app_ui <- function(request) {
     tagList(
         add_external_resources(),

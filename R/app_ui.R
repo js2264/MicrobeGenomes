@@ -1,137 +1,119 @@
-#' The application User-Interface
-#'
-#' @param request Internal parameter for `{shiny}`.
-#'     DO NOT REMOVE.
 #' @import shiny
-#' @noRd
+#' @include globals.R
 app_ui <- function(request) {
     tagList(
-
-        golem_add_external_resources(),
-
+        add_external_resources(),
         bs4Dash::dashboardPage(
             title = "Microbe Genomes Community", 
             help = NULL, 
             dark = NULL, 
             freshTheme = app_theme(), 
             preloader = list(html = waiter::spin_folding_cube(), color = "#3e5368"), 
-            header = bs4Dash::dashboardHeader(
-                status = 'light', titleWidth = '0%', 
-                border = FALSE
-            ),
-            sidebar = bs4Dash::dashboardSidebar(
-                skin = 'light', 
-                status = 'light', 
-                elevation = 2, 
-                minified = TRUE, 
-                collapsed = TRUE, 
-                bs4Dash::sidebarMenu(
-                    id = "sidebarmenu",
-                    flat = FALSE, 
-                    compact = FALSE, 
-                    legacy = TRUE, 
-                    div(
-                        selectizeInput(
-                            inputId = "select_species", 
-                            label = NULL, 
-                            choices = available_species, 
-                            width = '100%', 
-                            options = list(
-                                placeholder = 'Pick your favorite microbe',
-                                onInitialize = I('function() { this.setValue(""); }')
-                            )
-                        ), 
-                        bs4Dash::actionButton(
-                            inputId = "trigger",
-                            status = "info",
-                            label = bs4Dash::ionicon('search')
-                        )
-                    )
-                )
-            ),
-            body = bs4Dash::dashboardBody(shiny::fluidPage(
-                shiny::fluidRow(
-                    bs4Dash::column(4, bs4Dash::box(
-                        title = "Genome reference metrics",
-                        status = "white",
-                        solidHeader = TRUE,
-                        DT::dataTableOutput("metrics"),
-                        width = 12,
-                        collapsible = FALSE
-                    )), 
-                    bs4Dash::column(4, bs4Dash::box(
-                        title = "Contact matrix",
-                        status = "white",
-                        solidHeader = TRUE,
-                        plotOutput("map"),
-                        width = 12,
-                        collapsible = FALSE
-                    )), 
-                    bs4Dash::column(4, bs4Dash::box(
-                        title = "Genome structural features",
-                        status = "white",
-                        solidHeader = TRUE,
-                        DT::dataTableOutput("structural_features"),
-                        width = 12,
-                        collapsible = FALSE
-                    ))
-                ), 
-                br(),
-                br(),
-                shiny::fluidRow(
-                    bs4Dash::column(4, bs4Dash::box(
-                        title = "Data access",
-                        status = "white",
-                        solidHeader = TRUE,
-                        textOutput("data"),
-                        width = 12,
-                        collapsible = FALSE
-                    )), 
-                    bs4Dash::column(4, bs4Dash::box(
-                        title = "P(s) representation",
-                        status = "white",
-                        solidHeader = TRUE,
-                        plotOutput("ps"),
-                        width = 12,
-                        collapsible = FALSE
-                    )), 
-                    bs4Dash::column(4, bs4Dash::box(
-                        title = "Aggregated plot",
-                        status = "white",
-                        solidHeader = TRUE,
-                        plotOutput("aggregated"),
-                        width = 12,
-                        collapsible = FALSE
-                    ))
-                )
-            )), 
-            footer = bs4Dash::dashboardFooter(
-                left = 'Copyright rsg | 2023 - present', 
-                right = 'Developed by J. Serizay with Shiny in R'
-            )
+            header = header,
+            sidebar = sidebar,
+            body = body, 
+            footer = footer
         )
     )
 }
 
-#' Add external Resources to the Application
-#'
-#' This function is internally used to add external
-#' resources inside the Shiny application.
-#'
-#' @import shiny
-#' @importFrom golem add_resource_path activate_js favicon bundle_resources
-#' @noRd
-golem_add_external_resources <- function() {
-    
-    add_resource_path(
-        "www",
-        app_sys("app/www")
-    )
+header <- bs4Dash::dashboardHeader(
+    status = 'light', titleWidth = '0%', 
+    border = FALSE
+)
 
+footer <- bs4Dash::dashboardFooter(
+    left = 'Copyright rsg | 2023 - present', 
+    right = 'Developed by J. Serizay with Shiny in R'
+)
+
+sidebar <- bs4Dash::dashboardSidebar(#disable = TRUE)
+    skin = 'light', 
+    status = 'light', 
+    elevation = 2, 
+    minified = TRUE, 
+    collapsed = TRUE, 
+    bs4Dash::sidebarMenu(
+        id = "sidebarmenu",
+        flat = FALSE, 
+        compact = FALSE, 
+        legacy = TRUE, 
+        div(
+            selectizeInput(
+                inputId = "select_species", 
+                label = NULL, 
+                choices = available_species, 
+                width = '100%', 
+                options = list(
+                    placeholder = 'Pick your favorite microbe',
+                    onInitialize = I('function() { this.setValue(""); }')
+                )
+            ), 
+            bs4Dash::actionButton(
+                inputId = "trigger",
+                status = "info",
+                label = bs4Dash::ionicon('search')
+            )
+        )
+    )
+)
+
+body <- bs4Dash::dashboardBody(
+    shiny::fluidPage(shiny::fluidRow(
+        bs4Dash::column(width = 4, 
+            bs4Dash::box(
+                width = 12, 
+                title = "Genome assembly metrics",
+                shiny::tableOutput("metrics")
+            ), 
+            bs4Dash::box(
+                id = "card_data",
+                width = 12, 
+                title = "Data access",
+                DT::dataTableOutput("data")
+            ), 
+            bs4Dash::box(
+                width = 12, 
+                title = "Contigs",
+                shiny::tableOutput("contigs")
+            )
+        ), 
+        bs4Dash::column(width = 4,  
+            bs4Dash::box(
+                width = 12, 
+                title = "Contact matrix",
+                shiny::plotOutput("map")
+            ), 
+            bs4Dash::box(
+                width = 12, 
+                title = "P(s) representation",
+                plotOutput("ps")
+            )
+        ), 
+        bs4Dash::column(width = 4, 
+            bs4Dash::box(
+                width = 12, 
+                title = "Genome structural features",
+                DT::dataTableOutput("structural_features")
+            ), 
+            bs4Dash::box(
+                width = 12, 
+                title = "Aggregated plot",
+                plotOutput("aggregated")
+            )
+        )
+    ))
+)
+
+add_external_resources <- function() {
+    golem::add_resource_path(
+        "www",
+        system.file('app', 'www', package = "MicrobeGenomes")
+    )
     tags$head(
-        favicon(),
-        bundle_resources(
-            path = app_sys("app/www"),
+        golem::favicon(), 
+        golem::bundle_resources(
+            path = system.file('app', 'www', package = "MicrobeGenomes"),
             app_title = "MicrobeGenomes"
         ), 
         waiter::autoWaiter(

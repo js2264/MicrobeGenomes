@@ -28,3 +28,10 @@ LazyData: true
 RoxygenNote: 7.2.3
 Config/testthat/edition: 3
 Language: en-US
+Collate: 
+    'app_facets.R'
+    'app_server.R'
+    'globals.R'
+    'app_ui.R'
+    'run_app.R'
+    'sqlite.R'

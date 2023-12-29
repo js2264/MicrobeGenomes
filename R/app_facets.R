@@ -1,25 +1,38 @@
 .get_metrics <- function(species, db) {
-    NULL
-}
-
-.get_data <- function(species, db) {
-    NULL
+    n <- species
+    ref <- dplyr::tbl(db, "REFERENCES") |> 
+        dplyr::collect() |> 
+        dplyr::filter(n == sample) 
+    seqs <- Biostrings::readDNAStringSet(ref$fasta)
+    metrics <- tibble::tribble(
+        ~key,                   ~value, 
+        "Name",                 with(ref, glue::glue("{Genus} {species} (isolate {isolate})")), 
+        # "Taxon id",             "", 
+        "Total genome size",    format(sum(lengths(seqs)), big.mark = ",", scientific = FALSE), 
+        "Number of contigs",    as.character(length(seqs)), 
+        "Contig N50",           format(Biostrings::N50(lengths(seqs)), big.mark = ",", scientific = FALSE), 
+        "GC percent",           sprintf("%0.1f%%", mean(Biostrings::letterFrequency(seqs, letters = 'GC', as.prob = TRUE)) * 100), 
+    )
+    contigs <- tibble::tibble(
+        Contig = names(seqs), 
+        Length = lengths(seqs)
+    )
+    list(metrics, contigs)
 }
 
 .get_map <- function(species, db) {
-    NULL
+    map_f <- dplyr::tbl(db, "MAPS") |> 
+        dplyr::collect() |> 
+        dplyr::filter(sample == species) |> 
+        dplyr::pull(mcool)
+    if (length(map_f) > 0) {
+        cf <- HiCExperiment::CoolFile(map_f[1]) 
+        hc <- HiCExperiment::import(cf, resolution = 2000)
+        HiContacts::plotMatrix(hc)
+    } else {
+        return(NULL)
+    }
 }
-
-.get_features <- function(species, db) {
-    NULL
-}
-
-.get_aggr_plot <- function(species, db) {
-    NULL
-}
-
-
-
 
 .get_ps <- function(species, db) {
     ps_f <- dplyr::tbl(db, "DISTANCELAW") |> 
@@ -50,4 +63,62 @@
     } else {
         return(NULL)
     }
+}
+
+.get_data <- function(species, db) {
+    n <- species
+    all_files <- dplyr::tbl(db, "FILES") |> 
+        dplyr::collect()
+    ref_f <- dplyr::tbl(db, "REFERENCES") |> 
+        dplyr::collect() |> 
+        dplyr::filter(n == sample) |> 
+        dplyr::pull(fasta)
+    map_f <- dplyr::tbl(db, "MAPS") |> 
+        dplyr::collect() |> 
+        dplyr::filter(sample == species) |> 
+        dplyr::pull(mcool)
+    pairs_f <- dplyr::tbl(db, "PAIRS") |> 
+        dplyr::collect() |> 
+        dplyr::filter(sample == species) |> 
+        dplyr::pull(file)
+    files <- tibble::tibble(
+        Type = c(
+            rep("assembly", length(ref_f)), 
+            rep("contact map", length(map_f)), 
+            rep("pairs", length(pairs_f))
+        ), 
+        File = c(ref_f, map_f, pairs_f)
+    ) |> 
+        dplyr::left_join(all_files, by = c("File" = "file"))
+    files$Link <- sapply(files$hash, \(hash) {as.character(
+        shiny::downloadButton(
+            outputId = glue::glue("dl_data_{hash}"), 
+            label = "", class = "file_dl"
+        )
+    )})
+    dplyr::relocate(files, Link)
+}
+
+.get_features <- function(species, db) {
+    n <- species
+    all_files <- dplyr::tbl(db, "FILES") |> 
+        dplyr::collect()
+    features_f <- dplyr::tbl(db, "FEATURES") |> 
+        dplyr::collect() |> 
+        dplyr::filter(sample == species)
+    files <- tibble::tibble(
+        Type = features_f$feature, 
+        File = features_f$file
+    ) |> dplyr::left_join(all_files, by = c("File" = "file"))
+    files$Link <- sapply(files$hash, \(hash) {as.character(
+        shiny::downloadButton(
+            outputId = glue::glue("dl_data_{hash}"), 
+            label = "", class = "file_dl"
+        )
+    )})
+    dplyr::relocate(files, Link)
+}
+
+.get_aggr_plot <- function(species, db) {
+    NULL
 }

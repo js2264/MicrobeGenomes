@@ -17,8 +17,15 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
         #- 2023-12-28: ~ 3.9M distance_law.csv files (n = 348)
         .populate_ps(.DBZ_DATA_DIR = .DBZ_DATA_DIR) |> 
 
+        ## Find pairs files
+        #- 2023-12-28: ~  754G pairs files (n = 762)
+        .populate_pairs(.DBZ_DATA_DIR = .DBZ_DATA_DIR) |> 
+
         ## Find macrodomain, DI, insulation, borders and loops files
-        .populate_features(.DBZ_DATA_DIR = .DBZ_DATA_DIR)
+        .populate_features(.DBZ_DATA_DIR = .DBZ_DATA_DIR) |> 
+
+        ## List all files
+        .populate_files(.DBZ_DATA_DIR = .DBZ_DATA_DIR)
 
 }
 
@@ -125,6 +132,47 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
             tidyr::drop_na(ps)
 
     RSQLite::dbWriteTable(db, "DISTANCELAW", df, overwrite = TRUE)
+    RSQLite::dbDisconnect(db)
+    return(db)
+
+}
+
+.populate_pairs <- function(db, .DBZ_DATA_DIR) {
+
+    # FEATURES sqlite table:
+    # |_ sample      <chr>
+    # |_ library     <chr>
+    # |_ pairs       <chr>
+    # |_ file        <chr>
+
+    db <- RSQLite::dbConnect(db)
+    refs <- dplyr::tbl(db, "REFERENCES") |> dplyr::collect()
+
+    dir <- file.path(.DBZ_DATA_DIR, 'pairs')
+    pairs_f <- dir |> list.files(pattern = '*.pairs$', full.names = TRUE)
+    df <- tibble::tibble(pairs = "pairs", file = pairs_f) |> 
+        dplyr::mutate(sample = stringr::str_replace(file, dir, '') |> 
+            stringr::str_replace(".pairs$", '') |> 
+            stringr::str_replace("^/", '')
+        ) |> 
+        dplyr::mutate(pairs = grepl('_filtered', sample)) |>
+        dplyr::mutate(pairs = ifelse(pairs, 'filtered', 'unfiltered')) |>
+        dplyr::mutate(sample = stringr::str_replace(sample, '_filtered', '')) |>
+        dplyr::mutate(library = stringr::str_replace(sample, ".*_", '')) |>
+        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'species', 'isolate'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
+        dplyr::mutate(isolate = ifelse(isolate == library, NA, isolate)) |> 
+        dplyr::relocate(pairs, .after = library) |> 
+        dplyr::relocate(file, .after = pairs) |> 
+        dplyr::left_join(
+            dplyr::select(refs, sample, species), 
+            y = _, 
+            by = "species", 
+            relationship = "many-to-many"
+        ) |> 
+            dplyr::select(-species, -Genus, -isolate) |> 
+            tidyr::drop_na(file)
+
+    RSQLite::dbWriteTable(db, "PAIRS", df, overwrite = TRUE)
     RSQLite::dbDisconnect(db)
     return(db)
 
@@ -249,6 +297,42 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
 
     df <- rbind(df_macro, df_DI, df_insul, df_borders, df_loops)
     RSQLite::dbWriteTable(db, "FEATURES", df, overwrite = TRUE)
+    RSQLite::dbDisconnect(db)
+    return(db)
+
+}
+
+.populate_files <- function(db, .DBZ_DATA_DIR) {
+
+    # FILES sqlite table:
+    # |_ file      <chr>
+    # |_ hash      <chr>
+
+    # Available features: macrodomains, DI, insulations, borders, chromosight loops
+    db <- RSQLite::dbConnect(db)
+    refs <- dplyr::tbl(db, "REFERENCES") |> dplyr::collect()
+
+    ref_f <- dplyr::tbl(db, "REFERENCES") |> 
+        dplyr::collect() |> 
+        dplyr::pull(fasta)
+    map_f <- dplyr::tbl(db, "MAPS") |> 
+        dplyr::collect() |> 
+        dplyr::pull(mcool)
+    pairs_f <- dplyr::tbl(db, "PAIRS") |> 
+        dplyr::collect() |> 
+        dplyr::pull(file)
+    features_f <- dplyr::tbl(db, "FEATURES") |> 
+        dplyr::collect() |> 
+        dplyr::pull(file)
+    files <- tibble::tibble(
+        file = c(ref_f, map_f, pairs_f, features_f)
+    ) |> 
+        dplyr::rowwise() |>
+        dplyr::mutate(
+            hash = paste(sample(c(letters, 0:9), 12), collapse = "")
+        )
+
+    RSQLite::dbWriteTable(db, "FILES", files, overwrite = TRUE)
     RSQLite::dbDisconnect(db)
     return(db)
 

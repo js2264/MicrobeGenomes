@@ -11,6 +11,8 @@ Imports:
     bs4Dash, 
     waiter, 
     fresh, 
+    HiCExperiment, 
+    HiContacts, 
     DBI, 
     RSQLite, 
     dplyr, 
@@ -35,3 +37,4 @@ Collate:
     'app_ui.R'
     'run_app.R'
     'sqlite.R'
+    'utils.R'

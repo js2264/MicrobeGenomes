@@ -1,7 +1,7 @@
 app_server <- function(input, output, session) {
     
     ## Start-up ops
-    populate_db(.DBZ_DATA_DIR = '/data/DBZ')
+    # populate_db(.DBZ_DATA_DIR = '/data/DBZ')
     db <- DBI::dbConnect(
         RSQLite::SQLite(), 
         system.file('extdata', 'MicrobeGenomes.sqlite', package = 'MicrobeGenomes')
@@ -11,63 +11,62 @@ app_server <- function(input, output, session) {
         dplyr::pull(sample) |> 
         unique() |> 
         sort()
+    files <- dplyr::tbl(db, "FILES") |> dplyr::collect()
+    DBI::dbDisconnect(db)
     reactive_values <- reactiveValues(
         metrics = NULL,
         data = NULL,
         map = NULL,
         ps = NULL,
-        structural_features = NULL,
+        features = NULL,
         aggregated = NULL
     )
 
+    ## Render all download buttons and generate links
+    fClicks <- reactiveValues()
+    for ( hash in files$hash ) {
+        fClicks[[paste0("firstClick_", hash)]] <- FALSE
+    }
+    output$hidden_downloads <- renderUI(
+        lapply(
+            files$hash, 
+            function(hash) downloadLink(paste0("dButton_", hash), label="")
+        )
+    )
+
     ## Generate facets upon input trigger
-    observeEvent(input$trigger, {
+    observeEvent(input$trigger, ignoreInit = FALSE, ignoreNULL = FALSE, {
         metrics <- .get_metrics(input$select_species, db = db)
         reactive_values$metrics <- metrics[[1]]
         reactive_values$contigs <- metrics[[2]]
         reactive_values$data <- .get_data(input$select_species, db = db)
         reactive_values$map <- .get_map(input$select_species, db = db)
         reactive_values$ps <- .get_ps(input$select_species, db = db)
-        reactive_values$structural_features <- .get_features(input$select_species, db = db)
+        reactive_values$features <- .get_features(input$select_species, db = db)
         reactive_values$aggregated <- .get_aggr_plot(input$select_species, db = db)
     })
 
-    ## Render download buttons
-    observeEvent(input$trigger, {
-        req(input$trigger)
-        
-        ## Data
-        data <- .get_data(input$select_species, db = db)
-        if (!is.null(data)) {
-            for (K in seq_len(nrow(data))) {
-                hash <- data$hash[K]
-                output[[glue::glue("dl_data_{hash}")]] <- shiny::downloadHandler(
-                    filename = function() {basename(data$File[K])}, 
-                    content = function(file) {
-                        tmpf <- tempfile()
-                        system(glue::glue("cp {data$File[K]} {tmpf}"))
-                        file.copy(tmpf, file)
+    ## Generate download handlers
+    observeEvent(input$trigger, ignoreInit = FALSE, ignoreNULL = FALSE, {
+        data <- reactive_values$data
+        features <- reactive_values$features
+        lapply(
+            c(data$hash, features$hash), 
+            function(hash) {
+                output[[paste0("dButton_", hash)]] <- downloadHandler(
+                    filename = function() basename(files$file[files$hash==hash]),
+                    content  = function(file) {
+                        withProgress(message = "Fetching file...", value = 0, {
+                            incProgress(0.1, detail = "Copying file to tmp directory")
+                            tmpf <- file.path(tempdir(), basename(files$file[files$hash==hash]))
+                            system(glue::glue("cp {files$file[files$hash==hash]} {tmpf}"))
+                            incProgress(0.7, detail = "Downloading file")
+                            file.copy(tmpf, file)
+                        })
                     }
                 )
             }
-        }
-
-        ## Features
-        features <- .get_features(input$select_species, db = db)
-        print(features)
-        if (!is.null(features)) {
-            for (K in seq_len(nrow(features))) {
-                hash <- features$hash[K]
-                output[[glue::glue("dl_features_{hash}")]] <- shiny::downloadHandler(
-                    filename = function() {basename(features$File[K])}, 
-                    content = function(file) {
-                        tmpf <- tempfile()
-                        system(glue::glue("cp {features$File[K]} {tmpf}"))
-                        file.copy(tmpf, file)
-                    }
-                )
-            }
-        }
+        )
     })
 
     ## Render facets and send to UI
@@ -83,7 +82,9 @@ app_server <- function(input, output, session) {
     })
     output$data <- DT::renderDataTable({
         DT::datatable(
-            reactive_values$data,
+            reactive_values$data |> 
+                dplyr::mutate(File = basename(File)) |> 
+                dplyr::select(-hash),
             selection = list(mode = "none"),
             rownames = FALSE,
             extensions = c("Scroller"),
@@ -94,7 +95,9 @@ app_server <- function(input, output, session) {
                 scroller = TRUE,
                 scrollX = 200,
                 scrollY = 400,
+                scrollCollapse = TRUE, 
                 searching = FALSE, 
+                server = FALSE,
                 ordering = FALSE
             )
         )
@@ -105,9 +108,11 @@ app_server <- function(input, output, session) {
     output$ps <- renderPlot({
         reactive_values$ps
     })
-    output$structural_features <- DT::renderDataTable({
+    output$features <- DT::renderDataTable({
         DT::datatable(
-            reactive_values$structural_features,
+            reactive_values$features |> 
+                dplyr::mutate(File = basename(File)) |> 
+                dplyr::select(-hash),
             selection = list(mode = "none"),
             rownames = FALSE,
             extensions = c("Scroller"),
@@ -119,6 +124,7 @@ app_server <- function(input, output, session) {
                 scrollX = 200,
                 scrollY = 400,
                 searching = FALSE, 
+                server = FALSE,
                 ordering = FALSE
             )
         )
@@ -126,4 +132,22 @@ app_server <- function(input, output, session) {
     output$aggregated <- renderPlot({
         reactive_values$aggregated
     })
+
+    ## Trigger specific downloads
+    observeEvent(input$selected_button, {
+    
+        data <- reactive_values$data
+        features <- reactive_values$features
+        i <- strsplit(input$selected_button, "_")[[1]][2]
+        print(i)
+        shinyjs::runjs(paste0("document.getElementById('aButton_",i,"').addEventListener('click',function(){",
+                                "setTimeout(function(){document.getElementById('dButton_",i,"').click();},0)});"))
+
+        # Duplicating the first click
+        if(!fClicks[[paste0("firstClick_", i)]]) {
+            shinyjs::click(paste0('aButton_', i))
+            fClicks[[paste0("firstClick_",i)]] <- TRUE
+        }
+    })
+
 }

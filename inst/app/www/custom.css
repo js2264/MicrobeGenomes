@@ -9,10 +9,6 @@
     overflow: auto;
     max-height: 45vh;
 }
-#card_data {
-    max-height: 20vh;
-}
-
 
 .file_dl { 
     background-color: #ffffff00!important; 

@@ -1,8 +1,10 @@
 .get_metrics <- function(species, db) {
     n <- species
+    db <- RSQLite::dbConnect(db)
     ref <- dplyr::tbl(db, "REFERENCES") |> 
         dplyr::collect() |> 
         dplyr::filter(n == sample) 
+    RSQLite::dbDisconnect(db)
     seqs <- Biostrings::readDNAStringSet(ref$fasta)
     metrics <- tibble::tribble(
         ~key,                   ~value, 
@@ -21,24 +23,36 @@
 }
 
 .get_map <- function(species, db) {
+    db <- RSQLite::dbConnect(db)
     map_f <- dplyr::tbl(db, "MAPS") |> 
         dplyr::collect() |> 
         dplyr::filter(sample == species) |> 
         dplyr::pull(mcool)
+    RSQLite::dbDisconnect(db)
     if (length(map_f) > 0) {
-        cf <- HiCExperiment::CoolFile(map_f[1]) 
-        hc <- HiCExperiment::import(cf, resolution = 2000)
-        HiContacts::plotMatrix(hc)
+        withProgress(message = "Crunching data...", value = 0, {
+            incProgress(0.1, detail = "Fetching contact map")
+            cf <- HiCExperiment::CoolFile(map_f[1]) 
+            incProgress(0.3, detail = "Importing contacts")
+            hc <- HiCExperiment::import(cf, resolution = 2000)
+            incProgress(0.6, detail = "Plotting contact map")
+            p <- HiContacts::plotMatrix(hc)
+            incProgress(0.9, detail = "Wrapping up")
+            p
+        })
+
     } else {
         return(NULL)
     }
 }
 
 .get_ps <- function(species, db) {
+    db <- RSQLite::dbConnect(db)
     ps_f <- dplyr::tbl(db, "DISTANCELAW") |> 
         dplyr::collect() |> 
         dplyr::filter(sample == species) |> 
         dplyr::pull(ps)
+    RSQLite::dbDisconnect(db)
     if (length(ps_f) > 0) {
         df <- read.csv(ps_f[1]) 
         ggplot2::ggplot(df, ggplot2::aes(x = binned_distance, y = norm_p)) +
@@ -67,6 +81,7 @@
 
 .get_data <- function(species, db) {
     n <- species
+    db <- RSQLite::dbConnect(db)
     all_files <- dplyr::tbl(db, "FILES") |> 
         dplyr::collect()
     ref_f <- dplyr::tbl(db, "REFERENCES") |> 
@@ -81,6 +96,7 @@
         dplyr::collect() |> 
         dplyr::filter(sample == species) |> 
         dplyr::pull(file)
+    RSQLite::dbDisconnect(db)
     files <- tibble::tibble(
         Type = c(
             rep("assembly", length(ref_f)), 
@@ -90,32 +106,24 @@
         File = c(ref_f, map_f, pairs_f)
     ) |> 
         dplyr::left_join(all_files, by = c("File" = "file"))
-    files$Link <- sapply(files$hash, \(hash) {as.character(
-        shiny::downloadButton(
-            outputId = glue::glue("dl_data_{hash}"), 
-            label = "", class = "file_dl"
-        )
-    )})
+    files$Link <- makeButtons(files$hash)
     dplyr::relocate(files, Link)
 }
 
 .get_features <- function(species, db) {
     n <- species
+    db <- RSQLite::dbConnect(db)
     all_files <- dplyr::tbl(db, "FILES") |> 
         dplyr::collect()
     features_f <- dplyr::tbl(db, "FEATURES") |> 
         dplyr::collect() |> 
         dplyr::filter(sample == species)
+    RSQLite::dbDisconnect(db)
     files <- tibble::tibble(
         Type = features_f$feature, 
         File = features_f$file
     ) |> dplyr::left_join(all_files, by = c("File" = "file"))
-    files$Link <- sapply(files$hash, \(hash) {as.character(
-        shiny::downloadButton(
-            outputId = glue::glue("dl_data_{hash}"), 
-            label = "", class = "file_dl"
-        )
-    )})
+    files$Link <- makeButtons(files$hash)
     dplyr::relocate(files, Link)
 }
 

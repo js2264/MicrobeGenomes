@@ -18,6 +18,7 @@ app_ui <- function(request) {
 }
 
 header <- bs4Dash::dashboardHeader(
+    h1("Microbe Genomes Community", style = 'font-size: 2rem; margin: 4px 0px 0px -15px;'), 
     status = 'light', titleWidth = '0%', 
     border = FALSE
 )
@@ -27,82 +28,103 @@ footer <- bs4Dash::dashboardFooter(
     right = 'Developed by J. Serizay with Shiny in R'
 )
 
-sidebar <- bs4Dash::dashboardSidebar(#disable = TRUE)
-    skin = 'light', 
-    status = 'light', 
-    elevation = 2, 
-    minified = TRUE, 
-    collapsed = TRUE, 
-    bs4Dash::sidebarMenu(
-        id = "sidebarmenu",
-        flat = FALSE, 
-        compact = FALSE, 
-        legacy = TRUE, 
-        div(
-            selectizeInput(
-                inputId = "select_species", 
-                label = NULL, 
-                choices = available_species, 
-                width = '100%', 
-                options = list(
-                    placeholder = 'Pick your favorite microbe',
-                    onInitialize = I('function() { this.setValue(""); }')
-                )
-            ), 
-            bs4Dash::actionButton(
-                inputId = "trigger",
-                status = "info",
-                label = bs4Dash::ionicon('search')
-            )
-        )
-    )
+sidebar <- bs4Dash::dashboardSidebar(
+    disable = TRUE, 
+    # skin = 'light', 
+    # status = 'light', 
+    # elevation = 2, 
+    # minified = TRUE, 
+    # collapsed = TRUE, 
+    # bs4Dash::sidebarMenu(
+    #     id = "sidebarmenu",
+    #     flat = FALSE, 
+    #     compact = FALSE, 
+    #     legacy = TRUE, 
+    #     div(
+    #         selectizeInput(
+    #             inputId = "select_species", 
+    #             label = NULL, 
+    #             choices = available_species, 
+    #             width = '100%', 
+    #             options = list(
+    #                 placeholder = 'Pick your favorite microbe',
+    #                 onInitialize = I('function() { this.setValue(""); }')
+    #             )
+    #         ), 
+    #         bs4Dash::actionButton(
+    #             inputId = "trigger",
+    #             status = "info",
+    #             label = bs4Dash::ionicon('search')
+    #         )
+    #     )
+    # )
 )
 
 body <- bs4Dash::dashboardBody(
-    shiny::fluidPage(shiny::fluidRow(
-        bs4Dash::column(width = 4, 
-            bs4Dash::box(
-                width = 12, 
-                title = "Genome assembly metrics",
-                shiny::tableOutput("metrics")
+    shiny::fluidPage(
+        shinyjs::useShinyjs(), 
+        shiny::fluidRow(
+            bs4Dash::column(width = 4, 
+                shiny::fluidRow(
+                    style = 'padding-left: 7.5px;', 
+                    bs4Dash::column(width = 10, 
+                        selectizeInput(
+                            inputId = "select_species", 
+                            label = NULL, 
+                            choices = available_species, 
+                            width = '100%', 
+                            options = list(
+                                placeholder = 'Pick your favorite microbe',
+                                onInitialize = I('function() { this.setValue(""); }')
+                            )
+                        )
+                    ), 
+                    bs4Dash::column(width = 2,
+                        bs4Dash::actionButton(
+                            inputId = "trigger",
+                            status = "info",
+                            label = bs4Dash::ionicon('search')
+                        )
+                    )
+                ), 
+                bs4Dash::box(
+                    width = 12, 
+                    title = "Genome assembly metrics",
+                    shiny::tableOutput("metrics")
+                ), 
+                bs4Dash::box(
+                    width = 12, 
+                    title = "Contigs",
+                    shiny::tableOutput("contigs")
+                )
             ), 
-            bs4Dash::box(
-                id = "card_data",
-                width = 12, 
-                title = "Data access",
-                DT::dataTableOutput("data")
+            bs4Dash::column(width = 4, 
+                bs4Dash::box(
+                    width = 12, 
+                    title = "Data access",
+                    DT::dataTableOutput("data")
+                ), 
+                bs4Dash::box(
+                    width = 12, 
+                    title = "Genome structural features",
+                    DT::dataTableOutput("features")
+                ), 
             ), 
-            bs4Dash::box(
-                width = 12, 
-                title = "Contigs",
-                shiny::tableOutput("contigs")
-            )
+            bs4Dash::column(width = 4,  
+                bs4Dash::box(
+                    width = 12, 
+                    title = "Contact matrix",
+                    shiny::plotOutput("map")
+                ), 
+                bs4Dash::box(
+                    width = 12, 
+                    title = "P(s) representation",
+                    plotOutput("ps")
+                )
+            ), 
         ), 
-        bs4Dash::column(width = 4,  
-            bs4Dash::box(
-                width = 12, 
-                title = "Contact matrix",
-                shiny::plotOutput("map")
-            ), 
-            bs4Dash::box(
-                width = 12, 
-                title = "P(s) representation",
-                plotOutput("ps")
-            )
-        ), 
-        bs4Dash::column(width = 4, 
-            bs4Dash::box(
-                width = 12, 
-                title = "Genome structural features",
-                DT::dataTableOutput("structural_features")
-            ), 
-            bs4Dash::box(
-                width = 12, 
-                title = "Aggregated plot",
-                plotOutput("aggregated")
-            )
-        )
-    ))
+        shiny::uiOutput("hidden_downloads")
+    )
 )
 
 add_external_resources <- function() {
@@ -112,6 +134,7 @@ add_external_resources <- function() {
     )
     tags$head(
         golem::favicon(), 
+        shinyjs::useShinyjs(), 
         golem::bundle_resources(
             path = system.file('app', 'www', package = "MicrobeGenomes"),
             app_title = "MicrobeGenomes"

@@ -92,7 +92,7 @@
     n <- sample
     available_files <- files |> 
         dplyr::filter(sample == n) |> 
-        dplyr::filter(!type %in% available_features) 
+        dplyr::filter(type %in% available_features) 
     tibble::tibble(
         Type = available_files$type, 
         File = available_files$file, 

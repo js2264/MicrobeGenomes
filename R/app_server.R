@@ -48,6 +48,7 @@ app_server <- function(input, output, session) {
 
     ## Generate facets upon input trigger
     observeEvent(input$trigger, ignoreInit = FALSE, ignoreNULL = FALSE, {
+        print(paste0("SELECTED SPECIES: ", input$select_species))
         metrics <- .get_metrics(input$select_species, files = files)
         reactive_values$metrics <- metrics[[1]]
         reactive_values$contigs <- metrics[[2]]

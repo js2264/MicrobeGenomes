@@ -4,10 +4,13 @@ Guide: https://www.bdrsuite.com/blog/how-to-mount-s3-bucket-in-aws-ec2-using-s3f
 
 Default parameters, open access
 
+# Sync the data folder with the S3 bucket 
 
-# Fill the S3 bucket with important data 
-
-Drag-n-drop `DBZ` folder
+```shell
+aws configure
+# Enter key details here... 
+aws s3 sync data s3://mgc-shinyapp/data
+```
 
 # Install `s3fs` on EC2 instance 
 

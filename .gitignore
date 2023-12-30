@@ -6,4 +6,6 @@ dev/
 .DS_Store
 .quarto
 DBZ
+data
 .gitignore
+files_to_dl.txt

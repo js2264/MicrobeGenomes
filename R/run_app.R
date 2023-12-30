@@ -1,9 +1,3 @@
-#' Run the Shiny Application
-#'
-#' @inheritParams shiny::shinyApp
-#'
-#' @export
-#' @importFrom shiny shinyApp
 run_app <- function(
     onStart = NULL,
     options = list(),

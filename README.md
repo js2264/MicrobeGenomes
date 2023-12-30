@@ -1,4 +1,4 @@
-1. Read `inst/scripts/cleanup_samples.Rmd` and `inst/scripts/aws-setup`
+1. Read files in `inst/scripts/aws-setup`
 2. Update the `inst/extdata/processed_files.csv` file to list all available files 
 3. Make sure `processed_files` and `s3_mounting` arguments in `R/global.R` are correctly set for EC2 hosting
 4. Sync `./data` <- remote `sftpcampus`

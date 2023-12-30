@@ -1,13 +1,5 @@
 Guide: https://www.charlesbordet.com/en/guide-shiny-aws/#2-how-to-deploy-your-app-on-the-server
 
-# Create an EC2 instance
-
-- AMI: `ami-01d21b7be69801c2f`
-- Type: `t2-large`
-- Key: `myaws`
-- Security: NA
-- Storage: `30Gb`
-
 # Install R and app dependencies
 
 - Connect to remote AWS machine using the `Public IPv4 address`

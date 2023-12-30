@@ -1,6 +1,10 @@
+Guide: https://www.bdrsuite.com/blog/how-to-mount-s3-bucket-in-aws-ec2-using-s3fs/
+
+# Update the list of processed files present in remote data
+
 - Filter `metadata.csv` to only retain `WT` samples (2023-12-29: 70 samples)
 
-```{shell}
+```shell
 head -n1 DBZ/DBZ_workflow/config/metadata.csv > tmp.csv
 grep ,WT, DBZ/DBZ_workflow/config/metadata.csv >> tmp.csv
 cat tmp.csv | cut -d, -f1,2,3,5,6,7,8,14,19,20,21,22,23 | uniq > samples.csv
@@ -9,7 +13,7 @@ rm tmp.csv
 
 - Find all existing processed files for all samples (2023-12-29: 504 files found on `sftpcampus:~/rsg_fast/abignaud/DBZ/results/`)
 
-```{r}
+```r
 library(tidyverse)
 samples <- readr::read_csv('samples.csv') |> mutate(Genus = str_to_title(Genus)) 
 files <- map_dfr(
@@ -54,3 +58,23 @@ existing_files <- readLines("existing_files.txt")
 files <- filter(files, file %in% existing_files)
 files |> readr::write_csv('inst/extdata/processed_files.csv')
 ```
+
+# Sync the data folder <- remote data from `sftpcampus` 
+
+```shell
+cut -f14 -d, inst/extdata/processed_files.csv | sed '1d' | sed 's,\s.*,,' > files_to_dl.txt
+rsync -progress --verbose --files-from files_to_dl.txt sftpcampus:rsg_fast/abignaud/DBZ/results/ data/
+```
+
+# Create an S3 bucket 
+
+Default parameters, open access
+
+# Sync the S3 bucket <- local data folder
+
+```shell
+aws configure
+# Enter key details here... 
+aws s3 sync data s3://mgc-shinyapp/data
+```
+

@@ -1,5 +1,15 @@
 app_server <- function(input, output, session) {
     
+    ## Start-up ops
+    reactive_values <- reactiveValues(
+        metrics = NULL,
+        data = NULL,
+        map = NULL,
+        ps = NULL,
+        features = NULL,
+        aggregated = NULL
+    )
+
     ## Support for cicerone/glouton
     observeEvent(input$loaded, {
         visited <- glouton::fetch_cookies()
@@ -24,28 +34,6 @@ app_server <- function(input, output, session) {
         }
     })
 
-    ## Start-up ops
-    populate_db(.DBZ_DATA_DIR = '/mnt/DBZ')
-    db <- DBI::dbConnect(
-        RSQLite::SQLite(), 
-        system.file('extdata', 'MicrobeGenomes.sqlite', package = 'MicrobeGenomes')
-    )
-    files <- dplyr::tbl(db, "FILES") |> dplyr::collect()
-    available_species <- dplyr::tbl(db, "REFERENCES") |> 
-        dplyr::collect() |> 
-        dplyr::pull(sample) |> 
-        unique() |> 
-        sort()
-    DBI::dbDisconnect(db)
-    reactive_values <- reactiveValues(
-        metrics = NULL,
-        data = NULL,
-        map = NULL,
-        ps = NULL,
-        features = NULL,
-        aggregated = NULL
-    )
-
     ## Render all download buttons and generate links
     fClicks <- reactiveValues()
     for ( hash in files$hash ) {
@@ -60,14 +48,14 @@ app_server <- function(input, output, session) {
 
     ## Generate facets upon input trigger
     observeEvent(input$trigger, ignoreInit = FALSE, ignoreNULL = FALSE, {
-        metrics <- .get_metrics(input$select_species, db = db)
+        metrics <- .get_metrics(input$select_species, files = files)
         reactive_values$metrics <- metrics[[1]]
         reactive_values$contigs <- metrics[[2]]
-        reactive_values$data <- .get_data(input$select_species, db = db)
-        reactive_values$map <- .get_map(input$select_species, db = db)
-        reactive_values$ps <- .get_ps(input$select_species, db = db)
-        reactive_values$features <- .get_features(input$select_species, db = db)
-        reactive_values$aggregated <- .get_aggr_plot(input$select_species, db = db)
+        reactive_values$data <- .get_data(input$select_species, files = files)
+        reactive_values$map <- .get_map(input$select_species, files = files)
+        reactive_values$ps <- .get_ps(input$select_species, files = files)
+        reactive_values$features <- .get_features(input$select_species, files = files)
+        reactive_values$aggregated <- .get_aggr_plot(input$select_species, files = files)
     })
 
     ## Generate download handlers

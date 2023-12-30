@@ -18,10 +18,7 @@ Imports:
     HiContacts, 
     Biostrings, 
     kableExtra, 
-    DBI, 
-    RSQLite, 
     dplyr, 
-    dbplyr, 
     shinyjs, 
     ggplot2, 
     scales, 
@@ -45,7 +42,5 @@ Collate:
     'app_server.R'
     'global.R'
     'app_ui.R'
-    'cicerone.R'
     'run_app.R'
-    'sqlite.R'
     'utils.R'

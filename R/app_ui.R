@@ -4,7 +4,6 @@
 NULL
 
 header <- bs4Dash::dashboardHeader(
-    cicerone::use_cicerone(), 
     h1("Microbe Genomes Community", style = 'font-size: 2rem; margin: 4px 0px 0px -15px;'), 
     status = 'light', titleWidth = '0%', 
     border = FALSE
@@ -49,8 +48,10 @@ sidebar <- bs4Dash::dashboardSidebar(
 
 body <- bs4Dash::dashboardBody(
     shiny::fluidPage(
-        cicerone::use_cicerone(), 
+        waiter::useWaiter(), 
         shinyjs::useShinyjs(), 
+        glouton::use_glouton(), 
+        cicerone::use_cicerone(), 
         shiny::fluidRow(
             bs4Dash::column(width = 4, 
                 shiny::fluidRow(
@@ -122,9 +123,6 @@ add_external_resources <- function() {
     )
     tags$head(
         golem::favicon(), 
-        shinyjs::useShinyjs(), 
-        glouton::use_glouton(), 
-        cicerone::use_cicerone(), 
         golem::bundle_resources(
             path = system.file('app', 'www', package = "MicrobeGenomes"),
             app_title = "MicrobeGenomes"

@@ -1,0 +1,56 @@
+- Filter `metadata.csv` to only retain `WT` samples (2023-12-29: 70 samples)
+
+```{shell}
+head -n1 DBZ/DBZ_workflow/config/metadata.csv > tmp.csv
+grep ,WT, DBZ/DBZ_workflow/config/metadata.csv >> tmp.csv
+cat tmp.csv | cut -d, -f1,2,3,5,6,7,8,14,19,20,21,22,23 | uniq > samples.csv
+rm tmp.csv
+```
+
+- Find all existing processed files for all samples (2023-12-29: 504 files found on `sftpcampus:~/rsg_fast/abignaud/DBZ/results/`)
+
+```{r}
+library(tidyverse)
+samples <- readr::read_csv('samples.csv') |> mutate(Genus = str_to_title(Genus)) 
+files <- map_dfr(
+    c("cool", "distance_law", "filtered_pairs", "pairs", "macrodomains", "DI", "insulation", "borders", "chromosight"),
+    function(type) {
+        folder <- case_when(
+            type == 'cool' ~ "cool", 
+            type == 'distance_law' ~ "distance_law", 
+            type == 'filtered_pairs' ~ "distance_law", 
+            type == 'pairs' ~ "pairs", 
+            type == 'macrodomains' ~ "macrodomains", 
+            type == 'DI' ~ "DI", 
+            type == 'insulation' ~ "insulation", 
+            type == 'borders' ~ "borders", 
+            type == 'chromosight' ~ "chromosight", 
+            .default = NA
+        )
+        ext <- case_when(
+            type == 'cool' ~ ".mcool", 
+            type == 'distance_law' ~ "_distance_law.csv", 
+            type == 'filtered_pairs' ~ "_filtered.pairs", 
+            type == 'pairs' ~ ".pairs", 
+            type == 'macrodomains' ~ "_macrodomains.bed", 
+            type == 'DI' ~ "_DI.bed", 
+            type == 'insulation' ~ "_insulation.bed", 
+            type == 'borders' ~ "_borders.bed", 
+            type == 'chromosight' ~ "_loops.tsv", 
+            .default = NA
+        )
+        files <- list.files(file.path('DBZ', type))
+        group_by(samples, Genus, Species, Strain) |> 
+            group_modify(~ {
+                file <- file.path(folder, paste0(.x$Fasta, "_", .x$Fastq, ext))
+                tibble(.x, file = file, type = type)
+            })
+    }
+) |> 
+    group_by(Genus, Species, Strain) |> 
+    arrange(Genus, Species, Strain)
+# existing_files <- list.files('~/rsg_fast/abignaud/DBZ/results/', recursive = TRUE) ## on sftpcampus
+existing_files <- readLines("existing_files.txt")
+files <- filter(files, file %in% existing_files)
+files |> readr::write_csv('inst/extdata/processed_files.csv')
+```

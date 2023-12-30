@@ -1,50 +1,51 @@
-populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
+populate_db <- function() {
 
+    processed_files <- system.file('extdata', 'processed_files.csv', package = 'MicrobeGenomes')
     db_path <- system.file('extdata', 'MicrobeGenomes.sqlite', package = 'MicrobeGenomes')
-
-    ## Initiate an emtpy sqlite
-    db <- .init_sqlite(db_path) |> 
-
-        ## Find sample IDs, and matching reference fasta file
-        #- 2023-12-28: ~ 3.6G fasta files (n = 1124)
-        .populate_refs(.DBZ_DATA_DIR = .DBZ_DATA_DIR) |> 
-
-        ## Find mcool files
-        #- 2023-12-28: ~ 3.3G mcool files (n = 381)
-        .populate_maps(.DBZ_DATA_DIR = .DBZ_DATA_DIR) |> 
-
-        ## Find distance_law files
-        #- 2023-12-28: ~ 3.9M distance_law.csv files (n = 348)
-        .populate_ps(.DBZ_DATA_DIR = .DBZ_DATA_DIR) |> 
-
-        ## Find pairs files
-        #- 2023-12-28: ~  754G pairs files (n = 762)
-        .populate_pairs(.DBZ_DATA_DIR = .DBZ_DATA_DIR) |> 
-
-        ## Find macrodomain, DI, insulation, borders and loops files
-        .populate_features(.DBZ_DATA_DIR = .DBZ_DATA_DIR) |> 
-
-        ## List all files
-        .populate_files(.DBZ_DATA_DIR = .DBZ_DATA_DIR)
+    db <- .populate(db_path, processed_files)
 
 }
 
-.init_sqlite <- function(db_path) {
+.populate <- function(db_path, processed_files_path) {
 
+    # FILES sqlite table:
+    # |_ Kingdom          <chr>
+    # |_ Phylum           <chr>
+    # |_ Class            <chr>
+    # |_ Order            <chr>
+    # |_ Family           <chr>
+    # |_ Genus            <chr>
+    # |_ Species          <chr>
+    # |_ Strain           <chr>
+    # |_ file             <chr>
+    # |_ type             <chr>
+
+    ## Purge old db 
     if (file.exists(db_path)) unlink(db_path)
+    
+    ## Create a fresh db with a FILES table listing all processed files
     db <- DBI::dbConnect(RSQLite::SQLite(), db_path)
-    DBI::dbDisconnect(db)
+    processed_files <- read.csv(processed_files_path) |> tibble::as_tibble()
+    files <- processed_files |> 
+        dplyr::select(c(Kingdom, Phylum, Class, Order, Family, Genus, Species, Strain, file, type)) |> 
+        dplyr::group_by(Genus, Species, Strain) |> 
+        dplyr::arrange(Genus, Species, Strain) |> 
+        dplyr::rowwise() |>
+        dplyr::mutate(
+            hash = paste(sample(c(letters, 0:9), 12), collapse = "")
+        )
+    RSQLite::dbWriteTable(db, "FILES", files, overwrite = TRUE)
+    RSQLite::dbDisconnect(db)
     return(db)
 
 }
 
-.populate_refs <- function(db, .DBZ_DATA_DIR) {
+.populate_refs <- function(db) {
 
     # REFERENCES sqlite table:
-    # |_ sample       <chr>
     # |_ Genus        <chr>
-    # |_ species      <chr>
-    # |_ isolate      <chr>
+    # |_ Species      <chr>
+    # |_ Strain      <chr>
     # |_ fasta        <chr>
 
     dir <- file.path(.DBZ_DATA_DIR, 'ToB')
@@ -55,8 +56,8 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
             stringr::str_replace("^/", '')
         ) |> 
         dplyr::mutate(sample2 = sample) |> 
-        tidyr::separate_wider_delim(cols = sample2, names = c('Genus', 'species', 'isolate'), delim = '_', too_few = "align_start", too_many = 'merge') |> 
-        dplyr::relocate(fasta, .after = isolate)
+        tidyr::separate_wider_delim(cols = sample2, names = c('Genus', 'Species', 'Strain'), delim = '_', too_few = "align_start", too_many = 'merge') |> 
+        dplyr::relocate(fasta, .after = Strain)
 
     db <- RSQLite::dbConnect(db)
     RSQLite::dbWriteTable(db, "REFERENCES", df, overwrite = TRUE)
@@ -65,7 +66,7 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
 
 }
 
-.populate_maps <- function(db, .DBZ_DATA_DIR) {
+.populate_maps <- function(db) {
 
     # MAPS sqlite table:
     # |_ sample      <chr>
@@ -83,16 +84,16 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
             stringr::str_replace("^/", '')
         ) |> 
         dplyr::mutate(library = stringr::str_replace(sample, ".*_", '')) |>
-        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'species', 'isolate'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
-        dplyr::mutate(isolate = ifelse(isolate == library, NA, isolate)) |> 
+        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'Species', 'Strain'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
+        dplyr::mutate(Strain = ifelse(Strain == library, NA, Strain)) |> 
         dplyr::relocate(mcool, .after = library) |> 
         dplyr::left_join(
-            dplyr::select(refs, sample, species), 
+            dplyr::select(refs, sample, Species), 
             y = _, 
-            by = "species", 
+            by = "Species", 
             relationship = "many-to-many"
         ) |> 
-            dplyr::select(-species, -Genus, -isolate) |> 
+            dplyr::select(-Species, -Genus, -Strain) |> 
             tidyr::drop_na(mcool)
 
     RSQLite::dbWriteTable(db, "MAPS", df, overwrite = TRUE)
@@ -101,7 +102,7 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
 
 }
 
-.populate_ps <- function(db, .DBZ_DATA_DIR) {
+.populate_ps <- function(db) {
 
     # DISTANCELAW sqlite table:
     # |_ sample      <chr>
@@ -119,16 +120,16 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
             stringr::str_replace("^/", '')
         ) |> 
         dplyr::mutate(library = stringr::str_replace(sample, ".*_", '')) |>
-        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'species', 'isolate'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
-        dplyr::mutate(isolate = ifelse(isolate == library, NA, isolate)) |> 
+        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'Species', 'Strain'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
+        dplyr::mutate(Strain = ifelse(Strain == library, NA, Strain)) |> 
         dplyr::relocate(ps, .after = library) |> 
         dplyr::left_join(
-            dplyr::select(refs, sample, species), 
+            dplyr::select(refs, sample, Species), 
             y = _, 
-            by = "species", 
+            by = "Species", 
             relationship = "many-to-many"
         ) |> 
-            dplyr::select(-species, -Genus, -isolate) |> 
+            dplyr::select(-Species, -Genus, -Strain) |> 
             tidyr::drop_na(ps)
 
     RSQLite::dbWriteTable(db, "DISTANCELAW", df, overwrite = TRUE)
@@ -137,7 +138,7 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
 
 }
 
-.populate_pairs <- function(db, .DBZ_DATA_DIR) {
+.populate_pairs <- function(db) {
 
     # FEATURES sqlite table:
     # |_ sample      <chr>
@@ -159,17 +160,17 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
         dplyr::mutate(pairs = ifelse(pairs, 'filtered', 'unfiltered')) |>
         dplyr::mutate(sample = stringr::str_replace(sample, '_filtered', '')) |>
         dplyr::mutate(library = stringr::str_replace(sample, ".*_", '')) |>
-        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'species', 'isolate'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
-        dplyr::mutate(isolate = ifelse(isolate == library, NA, isolate)) |> 
+        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'Species', 'Strain'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
+        dplyr::mutate(Strain = ifelse(Strain == library, NA, Strain)) |> 
         dplyr::relocate(pairs, .after = library) |> 
         dplyr::relocate(file, .after = pairs) |> 
         dplyr::left_join(
-            dplyr::select(refs, sample, species), 
+            dplyr::select(refs, sample, Species), 
             y = _, 
-            by = "species", 
+            by = "Species", 
             relationship = "many-to-many"
         ) |> 
-            dplyr::select(-species, -Genus, -isolate) |> 
+            dplyr::select(-Species, -Genus, -Strain) |> 
             tidyr::drop_na(file)
 
     RSQLite::dbWriteTable(db, "PAIRS", df, overwrite = TRUE)
@@ -178,7 +179,7 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
 
 }
 
-.populate_features <- function(db, .DBZ_DATA_DIR) {
+.populate_features <- function(db) {
 
     # FEATURES sqlite table:
     # |_ sample      <chr>
@@ -198,17 +199,17 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
             stringr::str_replace("^/", '')
         ) |> 
         dplyr::mutate(library = stringr::str_replace(sample, ".*_", '')) |>
-        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'species', 'isolate'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
-        dplyr::mutate(isolate = ifelse(isolate == library, NA, isolate)) |> 
+        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'Species', 'Strain'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
+        dplyr::mutate(Strain = ifelse(Strain == library, NA, Strain)) |> 
         dplyr::relocate(feature, .after = library) |> 
         dplyr::relocate(file, .after = feature) |> 
         dplyr::left_join(
-            dplyr::select(refs, sample, species), 
+            dplyr::select(refs, sample, Species), 
             y = _, 
-            by = "species", 
+            by = "Species", 
             relationship = "many-to-many"
         ) |> 
-            dplyr::select(-species, -Genus, -isolate) |> 
+            dplyr::select(-Species, -Genus, -Strain) |> 
             tidyr::drop_na(file)
 
     dir <- file.path(.DBZ_DATA_DIR, 'DI')
@@ -219,17 +220,17 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
             stringr::str_replace("^/", '')
         ) |> 
         dplyr::mutate(library = stringr::str_replace(sample, ".*_", '')) |>
-        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'species', 'isolate'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
-        dplyr::mutate(isolate = ifelse(isolate == library, NA, isolate)) |> 
+        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'Species', 'Strain'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
+        dplyr::mutate(Strain = ifelse(Strain == library, NA, Strain)) |> 
         dplyr::relocate(feature, .after = library) |> 
         dplyr::relocate(file, .after = feature) |> 
         dplyr::left_join(
-            dplyr::select(refs, sample, species), 
+            dplyr::select(refs, sample, Species), 
             y = _, 
-            by = "species", 
+            by = "Species", 
             relationship = "many-to-many"
         ) |> 
-            dplyr::select(-species, -Genus, -isolate) |> 
+            dplyr::select(-Species, -Genus, -Strain) |> 
             tidyr::drop_na(feature)
 
     dir <- file.path(.DBZ_DATA_DIR, 'insulation')
@@ -240,17 +241,17 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
             stringr::str_replace("^/", '')
         ) |> 
         dplyr::mutate(library = stringr::str_replace(sample, ".*_", '')) |>
-        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'species', 'isolate'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
-        dplyr::mutate(isolate = ifelse(isolate == library, NA, isolate)) |> 
+        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'Species', 'Strain'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
+        dplyr::mutate(Strain = ifelse(Strain == library, NA, Strain)) |> 
         dplyr::relocate(feature, .after = library) |> 
         dplyr::relocate(file, .after = feature) |> 
         dplyr::left_join(
-            dplyr::select(refs, sample, species), 
+            dplyr::select(refs, sample, Species), 
             y = _, 
-            by = "species", 
+            by = "Species", 
             relationship = "many-to-many"
         ) |> 
-            dplyr::select(-species, -Genus, -isolate) |> 
+            dplyr::select(-Species, -Genus, -Strain) |> 
             tidyr::drop_na(feature)
 
     dir <- file.path(.DBZ_DATA_DIR, 'borders')
@@ -261,17 +262,17 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
             stringr::str_replace("^/", '')
         ) |> 
         dplyr::mutate(library = stringr::str_replace(sample, ".*_", '')) |>
-        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'species', 'isolate'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
-        dplyr::mutate(isolate = ifelse(isolate == library, NA, isolate)) |> 
+        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'Species', 'Strain'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
+        dplyr::mutate(Strain = ifelse(Strain == library, NA, Strain)) |> 
         dplyr::relocate(feature, .after = library) |> 
         dplyr::relocate(file, .after = feature) |> 
         dplyr::left_join(
-            dplyr::select(refs, sample, species), 
+            dplyr::select(refs, sample, Species), 
             y = _, 
-            by = "species", 
+            by = "Species", 
             relationship = "many-to-many"
         ) |> 
-            dplyr::select(-species, -Genus, -isolate) |> 
+            dplyr::select(-Species, -Genus, -Strain) |> 
             tidyr::drop_na(feature)
 
     dir <- file.path(.DBZ_DATA_DIR, 'chromosight')
@@ -282,57 +283,21 @@ populate_db <- function(.DBZ_DATA_DIR = '/data/DBZ') {
             stringr::str_replace("^/", '')
         ) |> 
         dplyr::mutate(library = stringr::str_replace(sample, ".*_", '')) |>
-        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'species', 'isolate'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
-        dplyr::mutate(isolate = ifelse(isolate == library, NA, isolate)) |> 
+        tidyr::separate_wider_delim(cols = sample, names = c('Genus', 'Species', 'Strain'), delim = '_', too_few = "align_start", too_many = 'drop') |> 
+        dplyr::mutate(Strain = ifelse(Strain == library, NA, Strain)) |> 
         dplyr::relocate(feature, .after = library) |> 
         dplyr::relocate(file, .after = feature) |> 
         dplyr::left_join(
-            dplyr::select(refs, sample, species), 
+            dplyr::select(refs, sample, Species), 
             y = _, 
-            by = "species", 
+            by = "Species", 
             relationship = "many-to-many"
         ) |> 
-            dplyr::select(-species, -Genus, -isolate) |> 
+            dplyr::select(-Species, -Genus, -Strain) |> 
             tidyr::drop_na(feature)
 
     df <- rbind(df_macro, df_DI, df_insul, df_borders, df_loops)
     RSQLite::dbWriteTable(db, "FEATURES", df, overwrite = TRUE)
-    RSQLite::dbDisconnect(db)
-    return(db)
-
-}
-
-.populate_files <- function(db, .DBZ_DATA_DIR) {
-
-    # FILES sqlite table:
-    # |_ file      <chr>
-    # |_ hash      <chr>
-
-    # Available features: macrodomains, DI, insulations, borders, chromosight loops
-    db <- RSQLite::dbConnect(db)
-    refs <- dplyr::tbl(db, "REFERENCES") |> dplyr::collect()
-
-    ref_f <- dplyr::tbl(db, "REFERENCES") |> 
-        dplyr::collect() |> 
-        dplyr::pull(fasta)
-    map_f <- dplyr::tbl(db, "MAPS") |> 
-        dplyr::collect() |> 
-        dplyr::pull(mcool)
-    pairs_f <- dplyr::tbl(db, "PAIRS") |> 
-        dplyr::collect() |> 
-        dplyr::pull(file)
-    features_f <- dplyr::tbl(db, "FEATURES") |> 
-        dplyr::collect() |> 
-        dplyr::pull(file)
-    files <- tibble::tibble(
-        file = c(ref_f, map_f, pairs_f, features_f)
-    ) |> 
-        dplyr::rowwise() |>
-        dplyr::mutate(
-            hash = paste(sample(c(letters, 0:9), 12), collapse = "")
-        )
-
-    RSQLite::dbWriteTable(db, "FILES", files, overwrite = TRUE)
     RSQLite::dbDisconnect(db)
     return(db)
 

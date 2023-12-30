@@ -11,6 +11,8 @@ Imports:
     shiny (>= 1.7.5.1), 
     bs4Dash, 
     waiter, 
+    glouton, 
+    cicerone, 
     fresh, 
     HiCExperiment, 
     HiContacts, 
@@ -30,6 +32,8 @@ Imports:
 Suggests: 
     spelling,
     testthat (>= 3.0.0)
+Remotes: 
+    github::ColinFay/glouton
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.3
@@ -41,6 +45,7 @@ Collate:
     'app_server.R'
     'global.R'
     'app_ui.R'
+    'cicerone.R'
     'run_app.R'
     'sqlite.R'
     'utils.R'

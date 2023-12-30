@@ -1,17 +1,41 @@
 app_server <- function(input, output, session) {
     
+    ## Support for cicerone/glouton
+    observeEvent(input$loaded, {
+        visited <- glouton::fetch_cookies()
+        print(visited$visited_site)
+        
+        # if null, set cookie and show guide
+        if (is.null(visited$visited_site)) {
+            glouton::add_cookie("visited_site", "yes")
+            guide <- cicerone::Cicerone$
+                new()$ 
+                step(
+                    el = "select_species",
+                    title = "Test",
+                    description = "Start by picking your favorite bacteria."
+                )$ 
+                step(
+                    el = "trigger",
+                    title = "Test",
+                    description = "Then click on the Search button."
+                )
+            guide$init()$start()
+        }
+    })
+
     ## Start-up ops
-    # populate_db(.DBZ_DATA_DIR = '/mnt/DBZ')
+    populate_db(.DBZ_DATA_DIR = '/mnt/DBZ')
     db <- DBI::dbConnect(
         RSQLite::SQLite(), 
         system.file('extdata', 'MicrobeGenomes.sqlite', package = 'MicrobeGenomes')
     )
+    files <- dplyr::tbl(db, "FILES") |> dplyr::collect()
     available_species <- dplyr::tbl(db, "REFERENCES") |> 
         dplyr::collect() |> 
         dplyr::pull(sample) |> 
         unique() |> 
         sort()
-    files <- dplyr::tbl(db, "FILES") |> dplyr::collect()
     DBI::dbDisconnect(db)
     reactive_values <- reactiveValues(
         metrics = NULL,
@@ -123,6 +147,7 @@ app_server <- function(input, output, session) {
                 scroller = TRUE,
                 scrollX = 200,
                 scrollY = 400,
+                scrollCollapse = TRUE, 
                 searching = FALSE, 
                 server = FALSE,
                 ordering = FALSE

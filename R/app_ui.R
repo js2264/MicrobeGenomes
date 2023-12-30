@@ -1,24 +1,10 @@
 #' @import shiny
 #' @include global.R
 #' @include _disable_autoload.R
-app_ui <- function(request) {
-    tagList(
-        add_external_resources(),
-        bs4Dash::dashboardPage(
-            title = "Microbe Genomes Community", 
-            help = NULL, 
-            dark = NULL, 
-            freshTheme = app_theme(), 
-            preloader = list(html = waiter::spin_folding_cube(), color = "#3e5368"), 
-            header = header,
-            sidebar = sidebar,
-            body = body, 
-            footer = footer
-        )
-    )
-}
+NULL
 
 header <- bs4Dash::dashboardHeader(
+    cicerone::use_cicerone(), 
     h1("Microbe Genomes Community", style = 'font-size: 2rem; margin: 4px 0px 0px -15px;'), 
     status = 'light', titleWidth = '0%', 
     border = FALSE
@@ -63,6 +49,7 @@ sidebar <- bs4Dash::dashboardSidebar(
 
 body <- bs4Dash::dashboardBody(
     shiny::fluidPage(
+        cicerone::use_cicerone(), 
         shinyjs::useShinyjs(), 
         shiny::fluidRow(
             bs4Dash::column(width = 4, 
@@ -136,6 +123,8 @@ add_external_resources <- function() {
     tags$head(
         golem::favicon(), 
         shinyjs::useShinyjs(), 
+        glouton::use_glouton(), 
+        cicerone::use_cicerone(), 
         golem::bundle_resources(
             path = system.file('app', 'www', package = "MicrobeGenomes"),
             app_title = "MicrobeGenomes"
@@ -144,6 +133,11 @@ add_external_resources <- function() {
             html = waiter::spin_folding_cube(), 
             color = "#d4d4d4"
         )
+    )
+    tags$script(
+        "$(document).on('shiny:connected', function(event) {
+        Shiny.onInputChange('loaded', true)
+        });"
     )
 }
 
@@ -178,6 +172,23 @@ app_theme <- function() {
         ),
         fresh::bs4dash_color(
             gray_900 = "#272c30", white = "#FFFFFF"
+        )
+    )
+}
+
+app_ui <- function(request) {
+    tagList(
+        add_external_resources(),
+        bs4Dash::dashboardPage(
+            title = "Microbe Genomes Community", 
+            help = NULL, 
+            dark = NULL, 
+            freshTheme = app_theme(), 
+            # preloader = list(html = waiter::spin_folding_cube(), color = "#3e5368"), 
+            header = header,
+            sidebar = sidebar,
+            body = body, 
+            footer = footer
         )
     )
 }

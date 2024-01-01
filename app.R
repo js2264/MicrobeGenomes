@@ -3,4 +3,4 @@
 # Or use the blue button on top of this file
 
 pkgload::load_all('/home/ubuntu/MicrobeGenomes', export_all = FALSE, helpers = FALSE, attach_testthat = FALSE)
-run_app() 
+MicrobeGenomes::run_app() 

@@ -17,21 +17,23 @@ rm tmp.csv
 library(tidyverse)
 samples <- readr::read_csv('samples.csv') |> mutate(Genus = str_to_title(Genus)) 
 files <- map_dfr(
-    c("cool", "distance_law", "filtered_pairs", "pairs", "macrodomains", "DI", "insulation", "borders", "chromosight"),
+    c("assembly", "cool", "distance_law", "filtered_pairs", "pairs", "macrodomains", "DI", "insulation", "borders", "chromosight"),
     function(type) {
         folder <- case_when(
-            type == 'cool' ~ "cool", 
-            type == 'distance_law' ~ "distance_law", 
-            type == 'filtered_pairs' ~ "distance_law", 
-            type == 'pairs' ~ "pairs", 
-            type == 'macrodomains' ~ "macrodomains", 
-            type == 'DI' ~ "DI", 
-            type == 'insulation' ~ "insulation", 
-            type == 'borders' ~ "borders", 
-            type == 'chromosight' ~ "chromosight", 
+            type == 'assembly' ~ "ref", 
+            type == 'cool' ~ "results/cool", 
+            type == 'distance_law' ~ "results/distance_law", 
+            type == 'filtered_pairs' ~ "results/distance_law", 
+            type == 'pairs' ~ "results/pairs", 
+            type == 'macrodomains' ~ "results/macrodomains", 
+            type == 'DI' ~ "results/DI", 
+            type == 'insulation' ~ "results/insulation", 
+            type == 'borders' ~ "results/borders", 
+            type == 'chromosight' ~ "results/chromosight", 
             .default = NA
         )
         ext <- case_when(
+            type == 'assembly' ~ ".fa", 
             type == 'cool' ~ ".mcool", 
             type == 'distance_law' ~ "_distance_law.csv", 
             type == 'filtered_pairs' ~ "_filtered.pairs", 
@@ -47,13 +49,14 @@ files <- map_dfr(
         group_by(samples, Genus, Species, Strain) |> 
             group_modify(~ {
                 file <- file.path(folder, paste0(.x$Fasta, "_", .x$Fastq, ext))
-                tibble(.x, file = file, type = type)
+                if (type == 'assembly') file <- file.path(folder, paste0(.x$Fasta, ".fa"))
+                tibble(.x, file = file, type = type) 
             })
     }
 ) |> 
     group_by(Genus, Species, Strain) |> 
     arrange(Genus, Species, Strain)
-# existing_files <- list.files('~/rsg_fast/abignaud/DBZ/results/', recursive = TRUE) ## on sftpcampus
+# writeLines(list.files('~/rsg_fast/abignaud/DBZ/', recursive = TRUE), 'existing_files.txt') ## on sftpcampus
 existing_files <- readLines("existing_files.txt")
 files <- filter(files, file %in% existing_files)
 files |> readr::write_csv('inst/extdata/processed_files.csv')
@@ -63,7 +66,9 @@ files |> readr::write_csv('inst/extdata/processed_files.csv')
 
 ```shell
 cut -f14 -d, inst/extdata/processed_files.csv | sed '1d' | sed 's,\s.*,,' > files_to_dl.txt
-rsync -progress --verbose --files-from files_to_dl.txt sftpcampus:rsg_fast/abignaud/DBZ/results/ data/
+rsync --progress --verbose --files-from files_to_dl.txt sftpcampus:rsg_fast/abignaud/DBZ/ data/
+mv data/results/* data/
+rm data/results/
 ```
 
 # Create an S3 bucket 
@@ -77,4 +82,3 @@ aws configure
 # Enter key details here... 
 aws s3 sync data s3://mgc-shinyapp/data
 ```
-

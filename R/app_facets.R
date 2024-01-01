@@ -2,7 +2,7 @@
     n <- sample
     ref <- files |> 
         dplyr::filter(sample == n) |> 
-        dplyr::filter(type == 'fasta')
+        dplyr::filter(type == 'assembly')
     seqs <- Biostrings::readDNAStringSet(ref$file)
     metrics <- tibble::tribble(
         ~key,                   ~value, 

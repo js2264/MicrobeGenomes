@@ -25,6 +25,7 @@ files <- processed_files |>
     dplyr::rowwise() |>
     dplyr::mutate(hash = paste(sample(c(letters, 0:9), 12), collapse = "")) |> 
     dplyr::mutate(file = file.path(s3_mounting, file)) |> 
+    dplyr::mutate(file = stringr::str_replace(file, '/results/', '')) |> 
     dplyr::group_by(sample)
 
 available_species <- files |> 
